@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    volumes:
+      # - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro  # Replace the default config entirely
+    ports:
+      - "8080:80"
+    depends_on:
+      - flask1
+      - flask2
+      - client
+    networks:
+      - dpms_net
+
+  flask1:
+    build: ./backend
+    environment:
+      - INSTANCE=flask1
+      - DB_HOST=dpms-mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=admin
+      - DB_NAME=dpms_db
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - dpms_net
+
+  flask2:
+    build: ./backend
+    environment:
+      - INSTANCE=flask2
+      - DB_HOST=dpms-mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=admin
+      - DB_NAME=dpms_db
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - dpms_net
+
+  client:
+    build: ./client
+    networks:
+      - dpms_net
+
+
+  db:
+    image: mysql:8.0
+    container_name: dpms-mysql
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_DATABASE: dpms_db
+      # Remove MYSQL_USER=root and MYSQL_PASSWORD
+      # Add regular user if needed:
+      # MYSQL_USER: root
+      # MYSQL_PASSWORD: admin
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-padmin"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    networks:
+      - dpms_net
+
+volumes:
+  mysql_data:
+
+networks:
+  dpms_net:
+    driver: bridge
